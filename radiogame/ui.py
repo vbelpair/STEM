@@ -139,6 +139,7 @@ class BeamPickerUI:
         self.on_fire = on_fire  # callback(path_hexes, start_hex, mode_str)
         self.language = language
         self.menu = menu
+        self._background = None
 
         self.mode = "free"  # or "6dir"
         self.start_hex: Optional[Axial] = None
@@ -483,17 +484,29 @@ class BeamPickerUI:
             self._artists["preview_fill"].set_verts([])
             self._artists["preview_fill"].set_array(np.array([], dtype=float))
             return
-
+        
+        # ✅ Cache path to avoid recalculation
+        if hasattr(self, '_last_path') and self._last_path == path:
+            return  # Don't recalculate if path hasn't changed
+        
+        self._last_path = path
         deposits = self._compute_preview_deposits(path)
-
         polys = [hex_corners_flat(self.board.hex_center_xy(h), self.board.hex_size) for h in path]
         vals = np.asarray(deposits, dtype=float)
-
         self._artists["preview_fill"].set_verts(polys)
         self._artists["preview_fill"].set_array(vals)
-
         vmax = float(max(1.0, vals.max()))
         self._artists["preview_fill"].set_clim(0.0, vmax)
+        
+        # ✅ Use blit instead of full redraw (faster)
+        if self._background is None:
+            self._background = self.fig.canvas.copy_from_bbox(self.ax.bbox)
+        
+        self.fig.canvas.restore_region(self._background)
+        self.ax.draw_artist(self._artists["preview_fill"])
+        self.ax.draw_artist(self._artists["arrow"])
+        self.fig.canvas.blit(self.ax.bbox)
+
 
     def _hide_dose_map(self):
         self._artists["dose_fill"].set_visible(False)
@@ -775,8 +788,6 @@ class BeamPickerUI:
                 return
             self._tumor_apply_at_event(event, self._tumor_drag_mode)
             self._render_tumor_overlay()
-            self._update_hud_panels()
-            self._update_stats_panel()
             self.fig.canvas.draw_idle()
             return
         if not self.dragging or self.start_hex is None:
@@ -792,14 +803,17 @@ class BeamPickerUI:
 
         self._render_path()
         self.fig.canvas.draw_idle()
-        self._update_hud_panels()
-        self._update_stats_panel()
 
     def _on_release(self, event):
         if self.phase == "select_tumor":
             self._tumor_drag_mode = None
             return
         self.dragging = False
+    
+        # ✅ Update panels only when drag ends
+        if self.start_hex is not None:
+            self._update_hud_panels()
+            self._update_stats_panel()
 
     def _on_key(self, event):
 
