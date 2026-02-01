@@ -1,0 +1,8 @@
+
+# folders
+.venv/
+powerpoints/
+
+# extensions
+*.ipynb
+*.pptx
