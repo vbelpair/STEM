@@ -192,10 +192,12 @@ class BeamPickerUI:
         self._draw_base(show_grid=show_grid)
         self._hide_dose_map()
 
-        self.fig.canvas.mpl_connect("button_press_event", self._on_press)
-        self.fig.canvas.mpl_connect("button_release_event", self._on_release)
-        self.fig.canvas.mpl_connect("motion_notify_event", self._on_move)
-        self.fig.canvas.mpl_connect("key_press_event", self._on_key)
+        # ✅ Use lambdas to ensure proper closure binding
+        self.fig.canvas.mpl_connect("button_press_event", lambda e: self._on_press(e))
+        self.fig.canvas.mpl_connect("button_release_event", lambda e: self._on_release(e))
+        self.fig.canvas.mpl_connect("motion_notify_event", lambda e: self._on_move(e))
+        self.fig.canvas.mpl_connect("key_press_event", lambda e: self._on_key(e))
+
 
         self._update_hud_panels()
         self._update_stats_panel()

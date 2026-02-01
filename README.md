@@ -50,14 +50,13 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 ### Install Dependencies
 ```bash
-pip install numpy matplotlib SimpleITK pillow
+pip install -r requirements.txt
 ```
 
 ### Required Packages
 - **numpy**: Numerical computations and array operations
 - **matplotlib**: Interactive UI and visualization
 - **SimpleITK**: Medical image loading (supports DICOM, NIfTI, JPG, PNG)
-- **pillow**: Image processing for menu thumbnails
 
 ## 🚀 Quick Start
 
