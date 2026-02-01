@@ -1,4 +1,3 @@
-```markdown
 # Radiotherapy Game Board (STEM Project)
 
 An educational game that simulates radiotherapy treatment planning. Players overlay a hexagonal grid on medical images (CT/MRI scans) and strategically deliver radiation beams to maximize dose in tumor tissue while minimizing damage to healthy tissue.
@@ -198,4 +197,3 @@ This is an educational project. Suggestions for improvements are welcome!
 ---
 
 **Made with ❤️ for radiation oncology education**
-```
