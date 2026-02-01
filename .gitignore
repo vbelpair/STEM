@@ -2,6 +2,7 @@
 # folders
 .venv/
 powerpoints/
+__pycache__/
 
 # extensions
 *.ipynb
