@@ -42,7 +42,7 @@ class GameBoard:
         hex_size_px: float,
         origin_xy: Optional[np.ndarray] = None,
         image_array_2d: Optional[np.ndarray] = None,
-        air_threshold: float = 50.0,
+        air_threshold: float = 100.,
     ):
         self.image = image
         self.hex_size = float(hex_size_px)
@@ -161,49 +161,46 @@ class GameBoard:
 
         self.tiles = tiles
 
-    def compute_start_region(self, air_threshold: float = 50.0) -> None:
+    def compute_start_region(self, air_threshold: float = 50.0, edge_margin: float = 2.0) -> None:
         """
         Mark tiles where beams are allowed to start.
-        Definition:
-        - mean_intensity < air_threshold
-        - connected to outside via air tiles only
+        Combined criteria:
+        - mean_intensity < air_threshold (is air)
+        - AND located at the actual image border
+        
+        Args:
+            air_threshold: Intensity threshold for classifying as air
+            edge_margin: Distance from edge in hex_size units (default 0.5)
         """
-
-        # reset
+        # Reset all tiles
         for t in self.tiles.values():
             t.can_start_beam = False
-
-        # find boundary air tiles (seed points)
-        queue = deque()
-        visited = set()
-
+        
+        # Calculate edge distance in pixels
+        edge_distance = self.hex_size * edge_margin
+        
+        # Mark tiles that meet BOTH criteria
         for qr, tile in self.tiles.items():
-            if not tile.score_dose:  # air tile
+            # Criterion 1: Must be air (low intensity)
+            if not tile.score_dose:  # This means mean_intensity < air_threshold
                 center = self.hex_center_xy(qr)
                 x, y = center
-                if (
-                    x < self.hex_size
-                    or x > self.W - self.hex_size
-                    or y < self.hex_size
-                    or y > self.H - self.hex_size
-                ):
-                    queue.append(qr)
-                    visited.add(qr)
+                
+                # Criterion 2: Must be at image border
+                at_left = x < edge_distance
+                at_right = x > self.W - edge_distance
+                at_top = y < edge_distance
+                at_bottom = y > self.H - edge_distance
+                
+                # ✅ Only allow start if BOTH conditions are met
+                if at_left or at_right or at_top or at_bottom:
+                    tile.can_start_beam = True
+        
+        # Optional: Debug info
+        start_count = sum(1 for t in self.tiles.values() if t.can_start_beam)
+        total_tiles = len(self.tiles)
+        print(f"Start region: {start_count} tiles out of {total_tiles} total tiles")
 
-        # BFS flood-fill through air only
-        while queue:
-            cur = queue.popleft()
-            self.tiles[cur].can_start_beam = True
-
-            for nb in self.tiles[cur].neighbours():
-                if nb not in self.tiles:
-                    continue
-                if nb in visited:
-                    continue
-                tnb = self.tiles[nb]
-                if not tnb.score_dose:  # still air
-                    visited.add(nb)
-                    queue.append(nb)
 
     def set_tumor(self, tumor_hex: Axial) -> None:
         """Mark exactly one tile as tumor (tissue=1), all others tissue=0."""

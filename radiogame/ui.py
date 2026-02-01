@@ -4,8 +4,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.collections import PolyCollection
 from matplotlib.patches import FancyBboxPatch
+from radiogame.menu import MenuScreen
 
 from .hexgrid import Axial, touched_hexes_by_segment, ray_path_to_border
+from .translations import t
 
 # --- UI styling (radiotherapy vibe) ---
 STYLE = {
@@ -131,11 +133,12 @@ class BeamPickerUI:
       5) Dose map shown again and autoscaled
     """
 
-    def __init__(self, board, image_2d: np.ndarray, on_fire: Optional[Callable] = None, show_grid: bool = True, particle_models=None):
+    def __init__(self, board, image_2d: np.ndarray, on_fire: Optional[Callable] = None, show_grid: bool = True, particle_models=None, language: str = "en", menu: MenuScreen = None):
         self.board = board
         self.image_2d = image_2d
         self.on_fire = on_fire  # callback(path_hexes, start_hex, mode_str)
-
+        self.language = language
+        self.menu = menu
 
         self.mode = "free"  # or "6dir"
         self.start_hex: Optional[Axial] = None
@@ -187,6 +190,7 @@ class BeamPickerUI:
         self._tile_keys: List[Axial] = list(self.board.tiles.keys())  # stable ordering
 
         self._draw_base(show_grid=show_grid)
+        self._hide_dose_map()
 
         self.fig.canvas.mpl_connect("button_press_event", self._on_press)
         self.fig.canvas.mpl_connect("button_release_event", self._on_release)
@@ -222,7 +226,7 @@ class BeamPickerUI:
         cax = self.fig.add_axes([bbox.x1 + pad, bbox.y0, cbar_w, bbox.height])
 
         cbar = self.fig.colorbar(pc_fill, cax=cax)
-        cbar.set_label("Dose (a.u.)", color="white", labelpad=10)
+        #cbar.set_label("Dose (a.u.)", color="white", labelpad=10)
         cbar.ax.yaxis.set_tick_params(color="white")
         plt.setp(cbar.ax.get_yticklabels(), color="white")
         cbar.outline.set_edgecolor("white")
@@ -251,7 +255,7 @@ class BeamPickerUI:
                 polys,
                 facecolors="none",
                 edgecolors=[STYLE["grid_edge"]],
-                linewidths=1.1,
+                linewidths=0.1,
                 alpha=1.0,
             )
             self.ax.add_collection(pc_edges)
@@ -294,40 +298,43 @@ class BeamPickerUI:
 
     # --- panels ---
     def _update_hud_panels(self):
-        mode_txt = "FREE" if self.mode == "free" else "6-DIR"
-        particle_txt = self.particle_name.upper()
-
+        lang = self.language  # Use instance language
+        
+        mode_txt = t("mode_free", lang) if self.mode == "free" else t("mode_6dir", lang)
+        particle_txt = t(self.particle_name, lang)
         E0_txt = "-"
         if self.phase == "play" and self.start_hex is not None and self.arrow_end_xy is not None:
             E0_txt = str(self._compute_energy_E0())
-
+        
         # --- Block 1 (status) ---
         block1 = "\n".join([
-            f"PHASE: {'TUMOR SELECT' if self.phase=='select_tumor' else 'TREATMENT'}",
-            f"MODE: {mode_txt} (M)" if self.phase == "play" else "MODE: -",
-            f"PARTICLE: {particle_txt} (1/2/3)" if self.phase == "play" else "PARTICLE: -",
-            f"E0: {E0_txt}" if self.phase == "play" else "E0: -",
+            f"{t('phase', lang)}: {t('phase_tumor_select', lang) if self.phase=='select_tumor' else t('phase_treatment', lang)}",
+            #f"{t('mode', lang)}: {mode_txt} (M)" if self.phase == "play" else f"{t('mode', lang)}: -",
+            f"{t('particle', lang)}: {particle_txt} (1/2/3)" if self.phase == "play" else f"{t('particle', lang)}: -",
+            f"{t('energy', lang)}: {E0_txt}" if self.phase == "play" else f"{t('energy', lang)}: -",
         ])
-
+        
         # --- Block 3 (controls) ---
         if self.phase == "select_tumor":
             block3 = "\n".join([
-                "Tumor painting:",
-                "• Left drag: ADD",
-                "• Right drag: ERASE",
-                "• Enter: confirm",
-                "• T: back later",
-                "• Esc: quit",
+                t("tumor_painting", lang) + ":",
+                t("left_drag_add", lang),
+                t("right_drag_erase", lang),
+                t("enter_confirm", lang),
+                t("t_back_later", lang),
+                t("back_to_menu", lang),
+                t("esc_quit", lang),
             ])
         else:
             block3 = "\n".join([
-                "Controls:",
-                "• Click: start",
-                "• Drag: aim",
-                "• Enter: fire",
-                "• R: reset",
-                "• N: new game",
-                "• Esc: quit",
+                t("controls", lang) + ":",
+                t("click_start", lang),
+                t("drag_aim", lang),
+                t("enter_fire", lang),
+                t("r_reset", lang),
+                t("n_new_game", lang),
+                t("back_to_menu", lang),
+                t("esc_quit", lang),
             ])
 
         # Style color depends on particle
@@ -361,6 +368,7 @@ class BeamPickerUI:
         self.fig.canvas.draw_idle()
 
     def _update_stats_panel(self):
+        lang = self.language
         dt, dn = self.board.dose_stats()
         mnon = self.board.max_dose_non_tumor()
         mtum = self.board.min_dose_tumor()
@@ -404,11 +412,11 @@ class BeamPickerUI:
         )
 
         lines = [
-            ("Dose tumor (avg)", dt, color_dose_tumor),
-            ("Min dose tumor", mtum, color_dose_tumor),
-            ("Tumor variability (CV)", cv, color_tumor_variability),
-            ("Dose non-tumor (avg)", dn, color_dose_non_tumor),
-            ("Max dose non-tumor", mnon, color_max_dose_non_tumor),
+            (t("dose_tumor_avg", lang), dt, color_dose_tumor),
+            (t("min_dose_tumor", lang), mtum, color_dose_tumor),
+            (t("tumor_variability_cv", lang), cv, color_tumor_variability),
+            (t("dose_non_tumor_avg", lang), dn, color_dose_non_tumor),
+            (t("max_dose_non_tumor", lang), mnon, color_max_dose_non_tumor),
         ]
 
         y = y_top
@@ -655,6 +663,7 @@ class BeamPickerUI:
     # --- DVH ---
     def _init_dvh_plot(self):
         """Initialize DVH axis style and line artists."""
+        lang = self.language
         ax = self.ax_dvh
         ax.set_facecolor("black")
         for s in ax.spines.values():
@@ -665,13 +674,15 @@ class BeamPickerUI:
         ax.set_ylim(0, 100)
         self.ax_dvh.margins(x=0.02, y=0.02)
 
-        ax.set_xlabel("Dose (% of max)", color="white", fontsize=10)
-        ax.set_ylabel("Volume (% of structure)", color="white", fontsize=10)
-        ax.set_title("DVH", color="white", fontsize=11, pad=8)
-
+        ax.set_xlabel(t("dvh_dose_label", lang), color="white", fontsize=10)
+        ax.set_ylabel(t("dvh_volume_label", lang), color="white", fontsize=10)
+        ax.set_title(t("dvh_title", lang), color="white", fontsize=11, pad=8)
+        
         # Lines (cumulative DVH curves)
-        (self._artists["dvh_tumor"],) = ax.plot([], [], lw=2.2, color=(1.0, 0.2, 0.2, 1.0), label="Tumor")
-        (self._artists["dvh_normal"],) = ax.plot([], [], lw=2.2, color=(0.65, 1.0, 1.0, 0.95), label="Non-tumor")
+        (self._artists["dvh_tumor"],) = ax.plot([], [], lw=2.2, color=(1.0, 0.2, 0.2, 1.0), 
+                                                label=t("dvh_tumor", lang))
+        (self._artists["dvh_normal"],) = ax.plot([], [], lw=2.2, color=(0.65, 1.0, 1.0, 0.95), 
+                                                label=t("dvh_non_tumor", lang))
 
         leg = ax.legend(loc="upper right", frameon=True, fontsize=9)
         leg.get_frame().set_facecolor((0, 0, 0, 0.6))
@@ -718,6 +729,18 @@ class BeamPickerUI:
         self.ax_dvh.set_xlim(0, 100)
         self.ax_dvh.set_ylim(0, 100)
         self.ax_dvh.margins(x=0.02, y=0.02)
+
+    def _go_back_to_menu(self):
+        """Handle returning to menu."""
+        if self.menu is not None:
+            # Close current figure and call back to menu
+            plt.close(self.fig)
+            self.menu._create_ui()
+            self.menu.show()
+        else:
+            # No callback, just show message
+            print("Back to menu functionality not configured")
+
 
     # --- event handlers ---
     def _on_press(self, event):
@@ -786,17 +809,18 @@ class BeamPickerUI:
             self._update_stats_panel()
             return
 
-        elif event.key == "m":
-            self.mode = "free" if self.mode == "6dir" else "6dir"
-            self._render_path()
-            self._update_hud_panels()
-            self._update_stats_panel()
+        elif event.key.lower() == "m":
+            self._go_back_to_menu()
+            #self.mode = "free" if self.mode == "6dir" else "6dir"
+            #self._render_path()
+            #self._update_hud_panels()
+            #self._update_stats_panel()
 
-        elif event.key == "n":
+        elif event.key.lower() == "n":
             self.restart_game()
             return
         
-        elif event.key == "r":
+        elif event.key.lower() == "r":
             self._clear_selection()
             self._show_dose_map()
             self.fig.canvas.draw_idle()
@@ -835,7 +859,7 @@ class BeamPickerUI:
         elif event.key == "escape":
             plt.close(self.fig)
         
-        elif event.key == "t":
+        elif event.key.lower() == "t":
             # toggle tumor edit mode
             if self.phase == "play":
                 self.phase = "select_tumor"
